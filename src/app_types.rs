@@ -22,4 +22,10 @@ impl embedded_hal::delay::DelayNs for CycleDelay {
     }
 }
 
-pub type TmcSpiDevice = ExclusiveDevice<Spi1Bus, Output<'static>, CycleDelay>;
+pub type ExclusiveTmcSpiDevice = ExclusiveDevice<Spi1Bus, Output<'static>, CycleDelay>;
+
+#[cfg(not(feature = "hfkp-encoder"))]
+pub type TmcSpiDevice = ExclusiveTmcSpiDevice;
+/// The encoder feed shares SPI1 with `tmc_control` through the arbiter.
+#[cfg(feature = "hfkp-encoder")]
+pub type TmcSpiDevice = crate::tmc_bus::ArbitratedSpi;

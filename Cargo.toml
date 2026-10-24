@@ -47,5 +47,6 @@ heapless = { version = "0.9", features = ["defmt"] }
 dev = ["foci-firmware/dev"]
 dev-flash = []
 usb-p1-probe = []
+hfkp-encoder = []
 trace = ["foci-firmware/trace", "foci-usb-stm32/trace"]
 trace-current-path = ["trace"]

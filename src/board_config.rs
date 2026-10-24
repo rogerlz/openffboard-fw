@@ -46,7 +46,7 @@ const OPENFFBOARD_V13_PWM_MAXCNT: u16 = 3999;
 const OPENFFBOARD_V13_DSADC_MDEC: u16 =
     foci_firmware::config::dsadc_mdec_from_pwm_maxcnt(OPENFFBOARD_V13_PWM_MAXCNT);
 
-pub(crate) const TMC_CONFIG: foci_firmware::config::TmcConfig = foci_firmware::config::TmcConfig {
+const STEPPER_TMC_CONFIG: foci_firmware::config::TmcConfig = foci_firmware::config::TmcConfig {
     pwm_maxcnt: OPENFFBOARD_V13_PWM_MAXCNT,
     tmc_clock_hz: 25_000_000,
     bbm_h: 9,
@@ -81,13 +81,56 @@ pub(crate) const TMC_CONFIG: foci_firmware::config::TmcConfig = foci_firmware::c
     motor_type_n_pole_pairs: foci_firmware::tmc_register_values::STEPPER_MOTOR_TYPE_N_POLE_PAIRS,
 };
 
+#[cfg(not(feature = "hfkp-encoder"))]
+pub(crate) const TMC_CONFIG: foci_firmware::config::TmcConfig = STEPPER_TMC_CONFIG;
+
+/// Mitsubishi HF-KP053 servo: a three-phase PMSM with 3 pole pairs, ~18 ohm
+/// per phase and Ld/Lq ~21/31 mH (a 200 V-class winding on 24 V), fed by
+/// its 18-bit encoder (`encoder_ppr: 65536`, 262144 counts per revolution).
+#[cfg(feature = "hfkp-encoder")]
+pub(crate) const TMC_CONFIG: foci_firmware::config::TmcConfig = foci_firmware::config::TmcConfig {
+    motor_type_n_pole_pairs: foci_tmc4671::registers::MotorTypeNPolePairs::new()
+        .with_motor_type(foci_tmc4671::registers::MotorType::ThreePhase)
+        .with_n_pole_pairs(3)
+        .into_bits(),
+    // The inductance capture rotates its drive at 1 kHz, where the winding
+    // presents ~130-200 ohm, and needs ~9 V to reach its 30-count
+    // quadrature-current floor. The excitation voltage caps the
+    // commissioning drive, so it allows that too; the coil check then
+    // drives ~0.58 A, inside its envelope.
+    excitation_voltage: 12288,
+    inductance_voltage: 12288,
+    // The stock ladder barely moves current through this winding; 5x spans
+    // ~0.23-0.68 A of d-axis current at 24 V. The ~0.75 A ceiling bounds
+    // the ladder, sets its linear threshold (~0.35 A) and the gain-floor
+    // torque steps (60/70/80% of it): larger steps spin the unloaded rotor
+    // fast enough in 5 ms that back-EMF at 24 V eats the current.
+    resistance_voltage_scale: 5,
+    resistance_max_expected_current_count: 650,
+    // The rotor holds still under the rotor-frame excitation, so only the
+    // ~0.7 ms electrical time constant has to settle; short settles keep
+    // the winding from warming past the 5% drift limit. At ~350 counts, 40
+    // samples 2 ms apart keep the window noise inside it too.
+    resistance_settle_ms: 100,
+    resistance_samples_per_window: 40,
+    resistance_sample_interval_ms: 2,
+    // The stepper limits (0.36 and 1.44 degrees) rely on detent torque. The
+    // unloaded rotor turns freely, so a few electrical degrees of alignment
+    // error or a 2 ms torque step move it a degree or more; allow 5 and 10
+    // degrees. A misaligned current loop still spins it far past that
+    // within the 100 ms flux hold.
+    current_validation_flux_max_encoder_delta_counts: 3641,
+    current_validation_torque_max_encoder_delta_counts: 7282,
+    ..STEPPER_TMC_CONFIG
+};
+
 const OPENFFBOARD_V13_BBM_REGISTER: u32 = 0x0909;
 const _: () = assert!(TMC_CONFIG.bbm_register() == OPENFFBOARD_V13_BBM_REGISTER);
 const OPENFFBOARD_V13_DSADC_MDEC_REGISTER: u32 =
     ((OPENFFBOARD_V13_DSADC_MDEC as u32) << 16) | OPENFFBOARD_V13_DSADC_MDEC as u32;
 const _: () = assert!(TMC_CONFIG.dsadc_mdec_register() == OPENFFBOARD_V13_DSADC_MDEC_REGISTER);
 const OPENFFBOARD_V13_EXCITATION_VOLTAGE: u16 = 1024;
-const _: () = assert!(TMC_CONFIG.excitation_voltage == OPENFFBOARD_V13_EXCITATION_VOLTAGE);
+const _: () = assert!(STEPPER_TMC_CONFIG.excitation_voltage == OPENFFBOARD_V13_EXCITATION_VOLTAGE);
 
 pub(crate) const FEEDBACK_CONFIGS: [foci_firmware::config::FeedbackConfig;
     TMC_CHANNEL_COUNT as usize] = [foci_firmware::config::FeedbackConfig {

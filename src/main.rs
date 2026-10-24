@@ -19,8 +19,12 @@ mod commissioning_backend;
 mod firmware_ctx;
 mod heartbeat;
 mod helpers;
+#[cfg(feature = "hfkp-encoder")]
+mod hfkp_encoder;
 mod interrupts;
 mod state;
+#[cfg(feature = "hfkp-encoder")]
+mod tmc_bus;
 mod tmc_control;
 mod tmc_diagnostics;
 mod tmc_dispatch;
@@ -196,6 +200,8 @@ mod app {
         let spi_cs = Output::new(p.PA4, Level::High, Speed::VeryHigh);
         let spi_dev = ExclusiveDevice::new(spi1, spi_cs, CycleDelay)
             .expect("ExclusiveDevice::new is infallible");
+        #[cfg(feature = "hfkp-encoder")]
+        let spi_dev = crate::tmc_bus::install(spi_dev);
         let tmc = Tmc4671Spi::new(spi_dev)
             .with_retry_policy(foci_tmc4671::spi::RetryPolicy::production());
 
@@ -241,6 +247,21 @@ mod app {
         let adc_internal = embassy_stm32::adc::Adc::new(p.ADC1);
         let temp_channel = adc_internal.enable_temperature();
         let mcu_temp_calibration = crate::board_config::read_mcu_temp_calibration();
+
+        #[cfg(feature = "hfkp-encoder")]
+        {
+            crate::hfkp_encoder::init(crate::hfkp_encoder::HfkpPins {
+                uart4: p.UART4,
+                usart3: p.USART3,
+                rx_dma: p.DMA1_CH2,
+                timer: p.TIM7,
+                tx: p.PB10,
+                rx: p.PA1,
+                de: p.PB4,
+                de_timer: p.TIM3,
+            });
+            defmt::info!("HF-KP encoder feed configured");
+        }
 
         stepper_reconcile::spawn().expect("stepper reconciliation worker must spawn exactly once");
         tmc_control::spawn().expect("tmc_control task must spawn exactly once");
