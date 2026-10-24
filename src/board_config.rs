@@ -66,6 +66,11 @@ pub(crate) const TMC_CONFIG: foci_firmware::config::TmcConfig = foci_firmware::c
     current_validation_flux_max_encoder_delta_counts: 4,
     current_validation_torque_max_encoder_delta_counts: 16,
     resistance_max_expected_current_count: 1600,
+    resistance_voltage_scale: 1,
+    resistance_settle_ms: 500,
+    resistance_samples_per_window: 8,
+    resistance_sample_interval_ms: 5,
+    inductance_voltage: 768,
     resistance_scale_metadata_validated: true,
     current_scale_ma_per_lsb: 1.155,
     max_run_current_ma: 20_000,
@@ -73,6 +78,7 @@ pub(crate) const TMC_CONFIG: foci_firmware::config::TmcConfig = foci_firmware::c
     vm_divider_low_ohms: VM_DIVIDER_LOW_OHMS,
     vm_adc_reference_millivolts: VM_ADC_REFERENCE_MILLIVOLTS,
     vm_adc_center_counts: VM_ADC_CENTER_COUNTS,
+    motor_type_n_pole_pairs: foci_firmware::tmc_register_values::STEPPER_MOTOR_TYPE_N_POLE_PAIRS,
 };
 
 const OPENFFBOARD_V13_BBM_REGISTER: u32 = 0x0909;
